@@ -1,0 +1,10 @@
+{
+  "name": "Lofi Video Chat",
+  "id": "figma-widget-lofi-video-chat",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figjam"],
+  "permissions": ["camera", "currentuser"],
+  "containsWidget": true,
+  "widgetApi": "1.0.0"
+}

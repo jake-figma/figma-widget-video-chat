@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>LoFi Video Chat</title>
+    <meta name="viewport" content="width=400" />
+    <style>
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background-color: #000;
+        margin: 0;
+        padding: 0;
+      }
+
+      main {
+        --canvas-w: 50%;
+        --canvas-h: 50%;
+        display: flex;
+        flex-wrap: wrap;
+        height: 100%;
+        justify-content: center;
+        width: 100%;
+      }
+
+      canvas {
+        background: yellow;
+        height: var(--canvas-h);
+        image-rendering: pixelated;
+        object-fit: cover;
+        object-position: center;
+        width: var(--canvas-w);
+      }
+      canvas:nth-child(odd) {
+        background: red;
+      }
+    </style>
+  </head>
+  <body>
+    <select id="camera"></select>
+    <main></main>
+  </body>
+  <script>
+    const SIZE = 128;
+    const sessions = {};
+    const canvases = {};
+    const expiries = {};
+    const main = document.querySelector("main");
+    const columnCount = (count) => Math.ceil(Math.sqrt(count));
+
+    window.onmessage = ({
+      data: {
+        pluginMessage: { type, id, data },
+      },
+    }) => {
+      if (type === "images") {
+        data.forEach(([_, { id, data }]) => {
+          sessions[id] = data;
+          expiries[id] = Date.now();
+        });
+      } else if (type === "image") {
+        sessions[id] = data;
+        expiries[id] = Date.now();
+      }
+    };
+
+    renderLoop();
+
+    function renderLoop() {
+      setTimeout(renderLoop, 150);
+      for (let id in expiries) {
+        if (Date.now() - expiries[id] > 1000 * 5 && canvases[id]) {
+          canvases[id].remove();
+          delete sessions[id];
+          delete canvases[id];
+          delete expiries[id];
+        }
+      }
+      const canvasCount = Object.keys(canvases).length;
+      const cols = columnCount(canvasCount);
+      const tileW = 100 / cols;
+      const tileH = 100 / Math.ceil(canvasCount / cols);
+      main.style.setProperty("--canvas-w", `${tileW}%`);
+      main.style.setProperty("--canvas-h", `${tileH}%`);
+
+      for (let id in sessions) {
+        if (!canvases[id]) {
+          canvases[id] = document.createElement("canvas");
+          canvases[id].width = canvases[id].height = SIZE;
+          main.appendChild(canvases[id]);
+        }
+        const image = new Image();
+        image.onload = () => {
+          canvases[id].getContext("2d").drawImage(image, 0, 0, SIZE, SIZE);
+        };
+        image.src = sessions[id];
+      }
+    }
+
+    try {
+      const select = document.getElementById("camera");
+      select.addEventListener("change", async () => {
+        select.remove();
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: SIZE, height: SIZE },
+          deviceId: { exact: select.value },
+        });
+        video.srcObject = stream;
+        video.onloadedmetadata = (e) => video.play();
+      });
+
+      navigator.mediaDevices.enumerateDevices().then((mediaDevices) => {
+        select.innerHTML = "<option selected disabled>Choose Camera</option>";
+        let count = 1;
+        mediaDevices.forEach(({ kind, label, deviceId }) => {
+          if (kind === "videoinput") {
+            const option = document.createElement("option");
+            option.value = deviceId;
+            option.innerText = label || `Camera ${count++}`;
+            select.appendChild(option);
+          }
+        });
+      });
+
+      const video = document.createElement("video");
+      video.autoplay = true;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = SIZE;
+      const ctx = canvas.getContext("2d");
+
+      async function sendImageLoop() {
+        setTimeout(sendImageLoop, 150);
+        ctx.drawImage(video, 0, 0, SIZE, SIZE);
+        parent.postMessage(
+          {
+            pluginMessage: { type: "image", data: canvas.toDataURL() },
+            pluginId: "*",
+          },
+          "*"
+        );
+      }
+
+      video.onplay = () => sendImageLoop();
+    } catch (e) {
+      console.error(e);
+      parent.postMessage(
+        { pluginMessage: { type: "error" }, pluginId: "*" },
+        "*"
+      );
+    }
+  </script>
+</html>
