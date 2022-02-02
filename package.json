@@ -4,8 +4,8 @@
   "description": "Figma Widget LoFi Video Chat",
   "main": "code.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "npm run build -- --watch & node server.js && fg"
+    "build": "tsc -p code/tsconfig.json",
+    "dev": "npm run build -- --watch & python3 -m http.server 42069"
   },
   "author": "jake albaugh",
   "license": "",

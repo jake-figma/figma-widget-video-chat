@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>LoFi Video Chat</title>
+    <meta name="viewport" content="width=400" />
+    <style>
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background-color: #fff;
+        margin: 0;
+        padding: 0;
+      }
+      main {
+        --di: 33.3333vw;
+        --gutter: 0.5rem;
+        align-items: center;
+        align-content: center;
+        display: flex;
+        flex-wrap: wrap;
+        height: 100%;
+        justify-content: center;
+      }
+      video {
+        border-radius: 50%;
+        box-shadow: 0 calc(var(--gutter) * 0.5) var(--gutter) rgba(0, 0, 0, 0.4);
+        display: block;
+        margin: var(--gutter);
+        object-fit: cover;
+        object-position: center;
+        height: calc(var(--di) - var(--gutter) * 2);
+        width: calc(var(--di) - var(--gutter) * 2);
+      }
+    </style>
+  </head>
+  <body>
+    <main></main>
+  </body>
+  <script src="ui.js"></script>
+</html>
