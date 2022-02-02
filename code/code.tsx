@@ -11,18 +11,29 @@ function Widget() {
 
   useEffect(() => {
     figma.ui.onmessage = async (message) => {
+      if (message.id && !messagesMap.get(message.id)) {
+        messagesMap.set(message.id, []);
+      }
       if (message.type === "image") {
         const id = sessionId();
         dataMap.set(id, { id, data: message.data });
-        figma.ui.postMessage(
-          { type: "images", data: dataMap.entries() },
-          { origin: "*" }
-        );
+        figma.ui.postMessage({ type: "images", data: dataMap.entries() });
       } else if (message.type === "message") {
-        messagesMap.set(messagesMap.size.toString(), message.data);
+        if (message.data.to === "all") {
+          messagesMap.keys().forEach((key) => {
+            const array = messagesMap.get(key);
+            array.push(message.data);
+            messagesMap.set(key, array);
+          });
+        } else {
+          const array = messagesMap.get(message.data.to);
+          array.push(message.data);
+          messagesMap.set(message.data.to, array);
+        }
       } else if (message.type === "ping") {
-        const data = messagesMap.values();
-        figma.ui.postMessage({ type: "pong", data }, { origin: "*" });
+        const data = messagesMap.get(message.id) || [];
+        messagesMap.set(message.id, []);
+        figma.ui.postMessage({ type: "pong", data });
       } else {
         console.log("ASDF", message);
       }
@@ -59,14 +70,13 @@ function Widget() {
         onClick={() => {
           dataMap.keys().forEach((k) => dataMap.delete(k));
           messagesMap.keys().forEach((k) => messagesMap.delete(k));
-          figma.closePlugin();
         }}
       >
         <Text fontSize={12}>Purge</Text>
       </AutoLayout>
-      {messagesMap.values().map((message, i) => (
+      {messagesMap.entries().map((messages, i) => (
         <Text fontSize={12} key={i}>
-          {JSON.stringify(message)}
+          {JSON.stringify(messages)}
         </Text>
       ))}
     </AutoLayout>

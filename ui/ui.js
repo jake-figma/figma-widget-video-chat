@@ -1,5 +1,8 @@
 const onError = console.error;
 const sleep = (ms = 1000) => new Promise((resolve) => setTimeout(resolve, ms));
+const USER_ID = Math.round(Math.random() * 100000000000000)
+    .toString()
+    .padStart(15, "0");
 class WebRTC {
     constructor(api, onData) {
         this.onData = onData;
@@ -12,12 +15,6 @@ class WebRTC {
             ],
         };
         this.streams = {};
-    }
-    enableAudio(enabled) {
-        this.streams[this.api.userId].getAudioTracks()[0].enabled = enabled;
-    }
-    enableVideo(enabled) {
-        this.streams[this.api.userId].getVideoTracks()[0].enabled = enabled;
     }
     async initialize() {
         console.log("initializing!", this.api.userId);
@@ -34,7 +31,10 @@ class WebRTC {
                     from: this.api.userId,
                     to: this.api.userId,
                 });
-                this.api.send("all", { type: "rtc.joined", data: false });
+                this.api.send("all", {
+                    type: "rtc.joined",
+                    data: false,
+                });
             }
             catch (error) {
                 onError(error);
@@ -47,7 +47,10 @@ class WebRTC {
                 from: this.api.userId,
                 to: this.api.userId,
             });
-            this.api.send("all", { type: "rtc.joined", data: false });
+            this.api.send("all", {
+                type: "rtc.joined",
+                data: false,
+            });
         }
     }
     async initializePeer(peerId, initCall = false) {
@@ -72,50 +75,45 @@ class WebRTC {
         }
     }
     async handleData(payload) {
-        const { type, data, from, to } = payload;
-        const fromSelf = from === this.api.userId;
-        const toSelf = to === this.api.userId || to === "all";
-        // Ignore messages that are not for us or are from us
-        if (type.match("rtc") && (fromSelf || !toSelf)) {
-            return;
-        }
-        if (type === "rtc.joined") {
-            // it is the stream
-            // set up peer connection object for a newcomer peer
-            this.initializePeer(from);
-            this.api.send(from, { type: "rtc.accepted", data: false });
-        }
-        else if (type === "rtc.accepted") {
-            // it is the stream
-            // initiate call if we are the newcomer peer
-            this.initializePeer(from, true);
-        }
-        else if (type === "rtc.sdp" && data) {
-            const d = JSON.parse(data);
-            await this.connections[from].setRemoteDescription(new RTCSessionDescription(d));
-            try {
+        try {
+            const { type, data, from, to } = payload;
+            const fromSelf = from === this.api.userId;
+            const toSelf = to === this.api.userId || to === "all";
+            // Ignore messages that are not for us or are from us
+            if (type.match("rtc") && (fromSelf || !toSelf)) {
+                return;
+            }
+            if (type === "rtc.joined") {
+                // it is the stream
+                // set up peer connection object for a newcomer peer
+                this.initializePeer(from);
+                this.api.send(from, { type: "rtc.accepted", data: false });
+            }
+            else if (type === "rtc.accepted") {
+                // it is the stream
+                // initiate call if we are the newcomer peer
+                this.initializePeer(from, true);
+            }
+            else if (type === "rtc.sdp" && data) {
+                const d = JSON.parse(data);
+                await this.connections[from].setRemoteDescription(new RTCSessionDescription(d));
                 if (d && d.type === "offer") {
                     const description = await this.connections[from].createAnswer();
                     this.gotDescription(description, from);
                 }
             }
-            catch (error) {
-                onError(error);
-            }
-        }
-        else if (type === "rtc.ice") {
-            const d = JSON.parse(data);
-            try {
+            else if (type === "rtc.ice") {
+                const d = JSON.parse(data);
                 await this.connections[from].addIceCandidate(new RTCIceCandidate(d));
             }
-            catch (error) {
-                onError(error);
+            else {
+                this.onData(payload);
             }
+            return true;
         }
-        else {
-            this.onData(payload);
+        catch (error) {
+            onError(error);
         }
-        return true;
     }
     gotIceCandidate(event, peerId) {
         if (event.candidate === null)
@@ -137,7 +135,11 @@ class WebRTC {
     gotRemoteStream(event, peerId) {
         console.log(`got remote stream, peer ${peerId}`);
         this.streams[peerId] = event.streams[0];
-        this.onData({ type: "connection", from: peerId, to: this.api.userId });
+        this.onData({
+            type: "connection",
+            from: peerId,
+            to: this.api.userId,
+        });
     }
     monitorConnection(event, peerId) {
         const state = this.connections[peerId].iceConnectionState;
@@ -145,47 +147,53 @@ class WebRTC {
         if (state === "failed" || state === "closed" || state === "disconnected") {
             delete this.connections[peerId];
             delete this.streams[peerId];
-            this.onData({ type: "disconnection", from: peerId, to: this.api.userId });
+            this.onData({
+                type: "disconnection",
+                from: peerId,
+                to: this.api.userId,
+            });
         }
     }
 }
 class Ledger {
     constructor(dataHandler) {
         this.dataHandler = dataHandler;
-        this.messageIndex = -1;
         this.messages = [];
+        this.queue = [];
         window.onmessage = ({ data: { pluginMessage } }) => this.receive(pluginMessage);
         this.ping();
         setInterval(this.ping, 250);
+        setInterval(this.flushQueue.bind(this), 250);
+        setInterval(this.processMessages.bind(this), 150);
     }
     ping() {
         parent.postMessage({
-            pluginMessage: { type: "ping" },
+            pluginMessage: { type: "ping", id: USER_ID },
             pluginId: "*",
         }, "*");
     }
+    flushQueue() {
+        if (this.queue.length) {
+            const message = this.queue.shift();
+            parent.postMessage({
+                pluginMessage: { type: "message", data: message, id: USER_ID },
+                pluginId: "*",
+            }, "*");
+        }
+    }
     send(message) {
-        parent.postMessage({
-            pluginMessage: { type: "message", data: message },
-            pluginId: "*",
-        }, "*");
+        this.queue.push(message);
     }
     receive({ type, data }) {
         if (type === "pong") {
-            this.messages = data;
-            this.processMessages();
+            this.messages = this.messages.concat(data);
         }
     }
-    async processMessages() {
-        const messageCount = this.messages.length;
-        if (this.messageIndex === -1) {
-            this.messageIndex = messageCount;
+    processMessages() {
+        if (!this.messages.length) {
+            return;
         }
-        while (this.messageIndex >= 0 && this.messageIndex < messageCount) {
-            await this.dataHandler(this.messages[this.messageIndex]);
-            this.messageIndex++;
-            await sleep(50);
-        }
+        this.dataHandler(this.messages.shift());
     }
 }
 class API {
@@ -196,19 +204,16 @@ class API {
         this.rtc.initialize();
     }
     send(to, payload) {
-        this.ledger.send(Object.assign(Object.assign({}, payload), { to, from: this.userId }));
+        this.ledger.send(Object.assign(Object.assign({}, payload), { to, from: this.userId, time: Date.now() }));
     }
 }
-const userId = () => Math.round(Math.random() * 100000000000000)
-    .toString()
-    .padStart(15, "0");
 class Dom {
     constructor(container) {
         this.initializing = true;
         this.videos = {};
         this.streams = {};
         this.streamId = null;
-        this.userId = userId();
+        this.userId = USER_ID;
         this.api = new API(this.userId, this.handleData.bind(this));
         this.container = container;
     }

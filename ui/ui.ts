@@ -1,8 +1,10 @@
-type DataHandler = (payload?: Payload) => void;
-
 const onError = console.error;
-
 const sleep = (ms = 1000) => new Promise((resolve) => setTimeout(resolve, ms));
+const USER_ID = Math.round(Math.random() * 100000000000000)
+  .toString()
+  .padStart(15, "0");
+
+type DataHandler = (payload?: Payload) => void;
 
 interface MediaElement extends HTMLMediaElement {
   captureStream?(): MediaStream;
@@ -29,7 +31,9 @@ interface PayloadConnection {
   data?: string;
 }
 type Payload = PayloadRequired &
-  (PayloadParamsDataBoolean | PayloadParamsDataString | PayloadConnection);
+  (PayloadParamsDataBoolean | PayloadParamsDataString | PayloadConnection) & {
+    time?: number;
+  };
 
 class WebRTC {
   api: API;
@@ -52,13 +56,6 @@ class WebRTC {
     this.streams = {};
   }
 
-  enableAudio(enabled: boolean) {
-    this.streams[this.api.userId].getAudioTracks()[0].enabled = enabled;
-  }
-  enableVideo(enabled: boolean) {
-    this.streams[this.api.userId].getVideoTracks()[0].enabled = enabled;
-  }
-
   async initialize() {
     console.log("initializing!", this.api.userId);
     const { mediaDevices } = navigator;
@@ -74,7 +71,10 @@ class WebRTC {
           from: this.api.userId,
           to: this.api.userId,
         });
-        this.api.send("all", { type: "rtc.joined", data: false });
+        this.api.send("all", {
+          type: "rtc.joined",
+          data: false,
+        });
       } catch (error) {
         onError(error);
       }
@@ -85,7 +85,10 @@ class WebRTC {
         from: this.api.userId,
         to: this.api.userId,
       });
-      this.api.send("all", { type: "rtc.joined", data: false });
+      this.api.send("all", {
+        type: "rtc.joined",
+        data: false,
+      });
     }
   }
 
@@ -115,48 +118,43 @@ class WebRTC {
   }
 
   async handleData(payload: Payload) {
-    const { type, data, from, to } = payload;
+    try {
+      const { type, data, from, to } = payload;
+      const fromSelf = from === this.api.userId;
+      const toSelf = to === this.api.userId || to === "all";
+      // Ignore messages that are not for us or are from us
+      if (type.match("rtc") && (fromSelf || !toSelf)) {
+        return;
+      }
 
-    const fromSelf = from === this.api.userId;
-    const toSelf = to === this.api.userId || to === "all";
-    // Ignore messages that are not for us or are from us
-    if (type.match("rtc") && (fromSelf || !toSelf)) {
-      return;
-    }
-
-    if (type === "rtc.joined") {
-      // it is the stream
-      // set up peer connection object for a newcomer peer
-      this.initializePeer(from);
-      this.api.send(from, { type: "rtc.accepted", data: false });
-    } else if (type === "rtc.accepted") {
-      // it is the stream
-      // initiate call if we are the newcomer peer
-      this.initializePeer(from, true);
-    } else if (type === "rtc.sdp" && data) {
-      const d = JSON.parse(data as string) as RTCSessionDescription;
-      await this.connections[from].setRemoteDescription(
-        new RTCSessionDescription(d)
-      );
-      try {
+      if (type === "rtc.joined") {
+        // it is the stream
+        // set up peer connection object for a newcomer peer
+        this.initializePeer(from);
+        this.api.send(from, { type: "rtc.accepted", data: false });
+      } else if (type === "rtc.accepted") {
+        // it is the stream
+        // initiate call if we are the newcomer peer
+        this.initializePeer(from, true);
+      } else if (type === "rtc.sdp" && data) {
+        const d = JSON.parse(data as string) as RTCSessionDescription;
+        await this.connections[from].setRemoteDescription(
+          new RTCSessionDescription(d)
+        );
         if (d && d.type === "offer") {
           const description = await this.connections[from].createAnswer();
           this.gotDescription(description, from);
         }
-      } catch (error) {
-        onError(error);
-      }
-    } else if (type === "rtc.ice") {
-      const d = JSON.parse(data as string) as RTCIceCandidateInit;
-      try {
+      } else if (type === "rtc.ice") {
+        const d = JSON.parse(data as string) as RTCIceCandidateInit;
         await this.connections[from].addIceCandidate(new RTCIceCandidate(d));
-      } catch (error) {
-        onError(error);
+      } else {
+        this.onData(payload);
       }
-    } else {
-      this.onData(payload);
+      return true;
+    } catch (error) {
+      onError(error);
     }
-    return true;
   }
 
   gotIceCandidate(event: RTCPeerConnectionIceEvent, peerId: string) {
@@ -179,7 +177,11 @@ class WebRTC {
   gotRemoteStream(event: RTCTrackEvent, peerId: string) {
     console.log(`got remote stream, peer ${peerId}`);
     this.streams[peerId] = event.streams[0];
-    this.onData({ type: "connection", from: peerId, to: this.api.userId });
+    this.onData({
+      type: "connection",
+      from: peerId,
+      to: this.api.userId,
+    });
   }
 
   monitorConnection(event: Event, peerId: string) {
@@ -188,63 +190,70 @@ class WebRTC {
     if (state === "failed" || state === "closed" || state === "disconnected") {
       delete this.connections[peerId];
       delete this.streams[peerId];
-      this.onData({ type: "disconnection", from: peerId, to: this.api.userId });
+      this.onData({
+        type: "disconnection",
+        from: peerId,
+        to: this.api.userId,
+      });
     }
   }
 }
 
 class Ledger {
   dataHandler: (payload: Payload) => Promise<any>;
-  messageIndex: number;
   messages: Payload[];
+  queue: any[];
 
   constructor(dataHandler: (payload: Payload) => Promise<any>) {
     this.dataHandler = dataHandler;
-    this.messageIndex = -1;
     this.messages = [];
+    this.queue = [];
     window.onmessage = ({ data: { pluginMessage } }) =>
       this.receive(pluginMessage);
     this.ping();
     setInterval(this.ping, 250);
+    setInterval(this.flushQueue.bind(this), 250);
+    setInterval(this.processMessages.bind(this), 150);
   }
 
   ping() {
     parent.postMessage(
       {
-        pluginMessage: { type: "ping" },
+        pluginMessage: { type: "ping", id: USER_ID },
         pluginId: "*",
       },
       "*"
     );
   }
 
+  flushQueue() {
+    if (this.queue.length) {
+      const message = this.queue.shift();
+      parent.postMessage(
+        {
+          pluginMessage: { type: "message", data: message, id: USER_ID },
+          pluginId: "*",
+        },
+        "*"
+      );
+    }
+  }
+
   send(message) {
-    parent.postMessage(
-      {
-        pluginMessage: { type: "message", data: message },
-        pluginId: "*",
-      },
-      "*"
-    );
+    this.queue.push(message);
   }
 
   receive({ type, data }: { type: "pong"; data: Payload[] }) {
     if (type === "pong") {
-      this.messages = data;
-      this.processMessages();
+      this.messages = this.messages.concat(data);
     }
   }
 
-  async processMessages() {
-    const messageCount = this.messages.length;
-    if (this.messageIndex === -1) {
-      this.messageIndex = messageCount;
+  processMessages() {
+    if (!this.messages.length) {
+      return;
     }
-    while (this.messageIndex >= 0 && this.messageIndex < messageCount) {
-      await this.dataHandler(this.messages[this.messageIndex]);
-      this.messageIndex++;
-      await sleep(50);
-    }
+    this.dataHandler(this.messages.shift());
   }
 }
 
@@ -261,14 +270,9 @@ class API {
   }
 
   send(to: string, payload: PayloadParams) {
-    this.ledger.send({ ...payload, to, from: this.userId });
+    this.ledger.send({ ...payload, to, from: this.userId, time: Date.now() });
   }
 }
-
-const userId = () =>
-  Math.round(Math.random() * 100000000000000)
-    .toString()
-    .padStart(15, "0");
 
 class Dom {
   api: API;
@@ -277,7 +281,7 @@ class Dom {
   videos: { [key: string]: HTMLVideoElement } = {};
   streams: { [key: string]: MediaStream } = {};
   streamId: string | null = null;
-  userId = userId();
+  userId = USER_ID;
 
   constructor(container: HTMLElement) {
     this.api = new API(this.userId, this.handleData.bind(this));
