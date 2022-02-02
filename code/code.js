@@ -50,7 +50,8 @@ function Widget() {
     });
     // const url = "http://localhost:42069?123"; // old
     // const url = "http://localhost:6969?13";
-    const url = "https://jakealbaugh.github.io/figma-widget-test"; // staging
+    const url = "https://jakealbaugh.github.io/figma-widget-test?123"; // staging
+    // const url = "https://jakealbaugh.github.io/figma-widget-test/old.html?123"; // staging- old
     return (figma.widget.h(AutoLayout, { spacing: 16, direction: "vertical" },
         figma.widget.h(AutoLayout, { fill: "#FF0", padding: 16, onClick: () => new Promise(() => {
                 figma.showUI(`<script>location.href = "${url}";</script>`, {

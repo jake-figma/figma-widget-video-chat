@@ -42,7 +42,8 @@ function Widget() {
 
   // const url = "http://localhost:42069?123"; // old
   // const url = "http://localhost:6969?13";
-  const url = "https://jakealbaugh.github.io/figma-widget-test"; // staging
+  const url = "https://jakealbaugh.github.io/figma-widget-test?123"; // staging
+  // const url = "https://jakealbaugh.github.io/figma-widget-test/old.html?123"; // staging- old
 
   return (
     <AutoLayout spacing={16} direction="vertical">
