@@ -1,16 +1,3 @@
-const onError = console.error;
-const sleep = (ms = 1000) => new Promise((resolve) => setTimeout(resolve, ms));
-const USER_ID = Math.round(Math.random() * 100000000000000)
-  .toString()
-  .padStart(15, "0");
-
-type DataHandler = (payload?: Payload) => void;
-
-interface MediaElement extends HTMLMediaElement {
-  captureStream?(): MediaStream;
-  mozCaptureStream?(): MediaStream;
-}
-
 interface PayloadParamsDataBoolean {
   type: "rtc.accepted" | "rtc.joined";
   data: boolean;
@@ -20,8 +7,6 @@ interface PayloadParamsDataString {
   data: string;
 }
 
-type PayloadParams = PayloadParamsDataBoolean | PayloadParamsDataString;
-
 interface PayloadRequired {
   from: string;
   to: string;
@@ -30,10 +15,19 @@ interface PayloadConnection {
   type: "connection" | "disconnection";
   data?: string;
 }
+
+type PayloadParams = PayloadParamsDataBoolean | PayloadParamsDataString;
 type Payload = PayloadRequired &
   (PayloadParamsDataBoolean | PayloadParamsDataString | PayloadConnection) & {
     time?: number;
   };
+
+const onError = console.error;
+const USER_ID = Math.round(Math.random() * 100000000000000)
+  .toString()
+  .padStart(15, "0");
+
+type DataHandler = (payload?: Payload) => void;
 
 class WebRTC {
   api: API;
@@ -201,19 +195,19 @@ class WebRTC {
 
 class Ledger {
   dataHandler: (payload: Payload) => Promise<any>;
-  messages: Payload[];
-  queue: any[];
+  initialized = false;
+  messages: Payload[] = [];
+  messageIndex = 0;
+  queue: Payload[] = [];
+  processing = false;
 
   constructor(dataHandler: (payload: Payload) => Promise<any>) {
     this.dataHandler = dataHandler;
-    this.messages = [];
-    this.queue = [];
     window.onmessage = ({ data: { pluginMessage } }) =>
       this.receive(pluginMessage);
     this.ping();
-    setInterval(this.ping, 250);
-    setInterval(this.flushQueue.bind(this), 250);
-    setInterval(this.processMessages.bind(this), 150);
+    setInterval(this.ping, 150);
+    setInterval(this.sendQueue.bind(this), 20);
   }
 
   ping() {
@@ -226,7 +220,7 @@ class Ledger {
     );
   }
 
-  flushQueue() {
+  sendQueue() {
     if (this.queue.length) {
       const message = this.queue.shift();
       parent.postMessage(
@@ -239,21 +233,33 @@ class Ledger {
     }
   }
 
-  send(message) {
+  addToSendQueue(message: Payload) {
     this.queue.push(message);
   }
 
   receive({ type, data }: { type: "pong"; data: Payload[] }) {
     if (type === "pong") {
-      this.messages = this.messages.concat(data);
+      if (!this.initialized) {
+        this.messageIndex = data.length;
+        this.initialized = true;
+      }
+      if (data.length < this.messages.length) {
+        this.messageIndex = 0;
+      }
+      this.messages = data;
+      this.processMessages();
     }
   }
 
-  processMessages() {
-    if (!this.messages.length) {
+  async processMessages() {
+    if (this.processing || this.messageIndex >= this.messages.length) {
       return;
     }
-    this.dataHandler(this.messages.shift());
+    this.processing = true;
+    await this.dataHandler(this.messages[this.messageIndex]);
+    this.messageIndex++;
+    this.processing = false;
+    this.processMessages();
   }
 }
 
@@ -270,7 +276,12 @@ class API {
   }
 
   send(to: string, payload: PayloadParams) {
-    this.ledger.send({ ...payload, to, from: this.userId, time: Date.now() });
+    this.ledger.addToSendQueue({
+      ...payload,
+      to,
+      from: this.userId,
+      time: Date.now(),
+    });
   }
 }
 

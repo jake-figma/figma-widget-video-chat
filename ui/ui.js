@@ -1,5 +1,4 @@
 const onError = console.error;
-const sleep = (ms = 1000) => new Promise((resolve) => setTimeout(resolve, ms));
 const USER_ID = Math.round(Math.random() * 100000000000000)
     .toString()
     .padStart(15, "0");
@@ -157,14 +156,16 @@ class WebRTC {
 }
 class Ledger {
     constructor(dataHandler) {
-        this.dataHandler = dataHandler;
+        this.initialized = false;
         this.messages = [];
+        this.messageIndex = 0;
         this.queue = [];
+        this.processing = false;
+        this.dataHandler = dataHandler;
         window.onmessage = ({ data: { pluginMessage } }) => this.receive(pluginMessage);
         this.ping();
-        setInterval(this.ping, 250);
-        setInterval(this.flushQueue.bind(this), 250);
-        setInterval(this.processMessages.bind(this), 150);
+        setInterval(this.ping, 150);
+        setInterval(this.sendQueue.bind(this), 20);
     }
     ping() {
         parent.postMessage({
@@ -172,7 +173,7 @@ class Ledger {
             pluginId: "*",
         }, "*");
     }
-    flushQueue() {
+    sendQueue() {
         if (this.queue.length) {
             const message = this.queue.shift();
             parent.postMessage({
@@ -181,19 +182,31 @@ class Ledger {
             }, "*");
         }
     }
-    send(message) {
+    addToSendQueue(message) {
         this.queue.push(message);
     }
     receive({ type, data }) {
         if (type === "pong") {
-            this.messages = this.messages.concat(data);
+            if (!this.initialized) {
+                this.messageIndex = data.length;
+                this.initialized = true;
+            }
+            if (data.length < this.messages.length) {
+                this.messageIndex = 0;
+            }
+            this.messages = data;
+            this.processMessages();
         }
     }
-    processMessages() {
-        if (!this.messages.length) {
+    async processMessages() {
+        if (this.processing || this.messageIndex >= this.messages.length) {
             return;
         }
-        this.dataHandler(this.messages.shift());
+        this.processing = true;
+        await this.dataHandler(this.messages[this.messageIndex]);
+        this.messageIndex++;
+        this.processing = false;
+        this.processMessages();
     }
 }
 class API {
@@ -204,7 +217,7 @@ class API {
         this.rtc.initialize();
     }
     send(to, payload) {
-        this.ledger.send(Object.assign(Object.assign({}, payload), { to, from: this.userId, time: Date.now() }));
+        this.ledger.addToSendQueue(Object.assign(Object.assign({}, payload), { to, from: this.userId, time: Date.now() }));
     }
 }
 class Dom {

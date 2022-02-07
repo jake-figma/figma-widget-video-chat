@@ -1,49 +1,69 @@
-// This widget will open an Iframe window with buttons to show a toast message and close the window.
-
 const { currentUser, widget } = figma;
-const { useEffect, useSyncedState, useSyncedMap, AutoLayout, Image, Text } =
-  widget;
+const { useEffect, useSyncedMap, AutoLayout, Text } = widget;
+
+interface PayloadParamsDataBoolean {
+  type: "rtc.accepted" | "rtc.joined";
+  data: boolean;
+}
+interface PayloadParamsDataString {
+  type: "rtc.sdp" | "rtc.ice";
+  data: string;
+}
+
+interface PayloadRequired {
+  from: string;
+  to: string;
+}
+interface PayloadConnection {
+  type: "connection" | "disconnection";
+  data?: string;
+}
+
+type PayloadParams = PayloadParamsDataBoolean | PayloadParamsDataString;
+type Payload = PayloadRequired &
+  (PayloadParamsDataBoolean | PayloadParamsDataString | PayloadConnection) & {
+    time?: number;
+  };
+
+type ImageMessage = { type: "image"; data: string; id: undefined };
+type PayloadMessage = { type: "message"; data: Payload; id: string };
+type PingMessage = { type: "ping"; id: string };
+
+type Message = PayloadMessage | ImageMessage | PingMessage;
 
 function Widget() {
   const dataMap = useSyncedMap<{ id: string; data: string }>("data");
-  const messagesMap = useSyncedMap<any>("messages");
+  const messagesMap = useSyncedMap<Payload[]>("messages");
   const sessionId = () => (currentUser.sessionId || 0).toString();
 
+  const ledger = () =>
+    messagesMap
+      .values()
+      .reduce<Payload[]>((val, curr) => val.concat(curr), [])
+      .sort((a, b) => (a.time > b.time ? 1 : -1));
+
   useEffect(() => {
-    figma.ui.onmessage = async (message) => {
-      if (message.id && !messagesMap.get(message.id)) {
-        messagesMap.set(message.id, []);
-      }
+    figma.ui.onmessage = async (message: Message) => {
       if (message.type === "image") {
         const id = sessionId();
         dataMap.set(id, { id, data: message.data });
         figma.ui.postMessage({ type: "images", data: dataMap.entries() });
       } else if (message.type === "message") {
-        if (message.data.to === "all") {
-          messagesMap.keys().forEach((key) => {
-            const array = messagesMap.get(key);
-            array.push(message.data);
-            messagesMap.set(key, array);
-          });
-        } else {
-          const array = messagesMap.get(message.data.to);
-          array.push(message.data);
-          messagesMap.set(message.data.to, array);
-        }
+        const array = messagesMap.get(message.id) || [];
+        array.push(message.data);
+        messagesMap.set(message.id, array);
       } else if (message.type === "ping") {
-        const data = messagesMap.get(message.id) || [];
-        messagesMap.set(message.id, []);
-        figma.ui.postMessage({ type: "pong", data });
+        figma.ui.postMessage({ type: "pong", data: ledger() });
       } else {
         console.log("ASDF", message);
       }
     };
   });
 
-  // const url = "http://localhost:42069?123"; // old
   // const url = "http://localhost:6969?13";
+  // const urlOld = "http://localhost:42069?123"; // old
   const url = "https://jakealbaugh.github.io/figma-widget-test?123"; // staging
-  // const url = "https://jakealbaugh.github.io/figma-widget-test/old.html?123"; // staging- old
+  const urlOld = "https://jakealbaugh.github.io/figma-widget-test/old.html?123"; // staging- old
 
   return (
     <AutoLayout spacing={16} direction="vertical">
@@ -66,6 +86,24 @@ function Widget() {
         </Text>
       </AutoLayout>
       <AutoLayout
+        fill="#00F"
+        padding={16}
+        onClick={() =>
+          new Promise(() => {
+            figma.showUI(`<script>location.href = "${urlOld}";</script>`, {
+              visible: true,
+              height: 400,
+              width: 400,
+            });
+            figma.ui.postMessage({ type: "add", id: sessionId() });
+          })
+        }
+      >
+        <Text fontSize={24} fontWeight="black">
+          Join Lo Res Video Chat
+        </Text>
+      </AutoLayout>
+      <AutoLayout
         fill="#F00"
         padding={8}
         onClick={() => {
@@ -75,9 +113,9 @@ function Widget() {
       >
         <Text fontSize={12}>Purge</Text>
       </AutoLayout>
-      {messagesMap.entries().map((messages, i) => (
+      {ledger().map((message, i) => (
         <Text fontSize={12} key={i}>
-          {JSON.stringify(messages)}
+          {JSON.stringify(message)}
         </Text>
       ))}
     </AutoLayout>

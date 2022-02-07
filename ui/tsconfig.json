@@ -5,6 +5,7 @@
       "es2017","DOM"
     ],
     "typeRoots": [
+      "../index.d.ts"
     ]
   }
 }

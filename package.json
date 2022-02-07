@@ -1,7 +1,7 @@
 {
-  "name": "figma-widget-lofi-video-chat",
+  "name": "figma-widget-video-chat",
   "version": "1.0.0",
-  "description": "Figma Widget LoFi Video Chat",
+  "description": "Figma Widget Video Chat",
   "main": "code.js",
   "scripts": {
     "build": "tsc -p code/tsconfig.json",
