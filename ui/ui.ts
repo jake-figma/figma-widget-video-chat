@@ -50,16 +50,32 @@ class WebRTC {
     this.streams = {};
   }
 
-  async initialize(deviceId: string) {
+  initialize(deviceId: string) {
     console.log("initializing!", this.api.userId);
-    const { mediaDevices } = navigator;
-    if (mediaDevices && mediaDevices.getUserMedia) {
-      try {
-        const stream = await mediaDevices.getUserMedia({
-          audio: false,
-          video: deviceId ? { deviceId: { exact: deviceId } } : true,
-        });
-        this.streams[this.api.userId] = stream;
+    return new Promise(async (resolve) => {
+      const { mediaDevices } = navigator;
+      if (mediaDevices && mediaDevices.getUserMedia) {
+        try {
+          const stream = await mediaDevices.getUserMedia({
+            audio: false,
+            video: deviceId ? { deviceId: { exact: deviceId } } : true,
+          });
+          this.streams[this.api.userId] = stream;
+          this.onData({
+            type: "connection",
+            from: this.api.userId,
+            to: this.api.userId,
+          });
+          this.api.send("all", {
+            type: "rtc.joined",
+            data: false,
+          });
+          resolve(true);
+        } catch (error) {
+          onError(error);
+        }
+      } else {
+        onError("Your browser does not support getUserMedia API");
         this.onData({
           type: "connection",
           from: this.api.userId,
@@ -69,21 +85,8 @@ class WebRTC {
           type: "rtc.joined",
           data: false,
         });
-      } catch (error) {
-        onError(error);
       }
-    } else {
-      onError("Your browser does not support getUserMedia API");
-      this.onData({
-        type: "connection",
-        from: this.api.userId,
-        to: this.api.userId,
-      });
-      this.api.send("all", {
-        type: "rtc.joined",
-        data: false,
-      });
-    }
+    });
   }
 
   async initializePeer(peerId: string, initCall = false) {
@@ -205,9 +208,11 @@ class Ledger {
     this.dataHandler = dataHandler;
     window.onmessage = ({ data: { pluginMessage } }) =>
       this.receive(pluginMessage);
+  }
+
+  initialize() {
     this.ping();
     setInterval(this.ping, 150);
-    // setInterval(this.sendQueue.bind(this), 20);
   }
 
   ping() {
@@ -220,21 +225,7 @@ class Ledger {
     );
   }
 
-  sendQueue() {
-    if (this.queue.length) {
-      const message = this.queue.shift();
-      parent.postMessage(
-        {
-          pluginMessage: { type: "message", data: message, id: USER_ID },
-          pluginId: "*",
-        },
-        "*"
-      );
-    }
-  }
-
-  addToSendQueue(message: Payload) {
-    // this.queue.push(message);
+  send(message: Payload) {
     parent.postMessage(
       {
         pluginMessage: { type: "message", data: message, id: USER_ID },
@@ -282,12 +273,13 @@ class API {
     this.ledger = new Ledger(this.rtc.handleData.bind(this.rtc));
   }
 
-  initialize(deviceId: string) {
-    this.rtc.initialize(deviceId);
+  async initialize(deviceId: string) {
+    await this.rtc.initialize(deviceId);
+    this.ledger.initialize();
   }
 
   send(to: string, payload: PayloadParams) {
-    this.ledger.addToSendQueue({
+    this.ledger.send({
       ...payload,
       to,
       from: this.userId,
