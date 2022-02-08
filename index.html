@@ -103,6 +103,7 @@
       select.addEventListener("change", async () => {
         select.remove();
         const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
           video: { width: SIZE, height: SIZE },
           deviceId: { exact: select.value },
         });

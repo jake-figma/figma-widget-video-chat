@@ -15,14 +15,14 @@ class WebRTC {
         };
         this.streams = {};
     }
-    async initialize() {
+    async initialize(deviceId) {
         console.log("initializing!", this.api.userId);
         const { mediaDevices } = navigator;
         if (mediaDevices && mediaDevices.getUserMedia) {
             try {
                 const stream = await mediaDevices.getUserMedia({
                     audio: false,
-                    video: true,
+                    video: deviceId ? { deviceId: { exact: deviceId } } : true,
                 });
                 this.streams[this.api.userId] = stream;
                 this.onData({
@@ -219,7 +219,9 @@ class API {
         this.userId = userId;
         this.rtc = new WebRTC(this, onData);
         this.ledger = new Ledger(this.rtc.handleData.bind(this.rtc));
-        this.rtc.initialize();
+    }
+    initialize(deviceId) {
+        this.rtc.initialize(deviceId);
     }
     send(to, payload) {
         this.ledger.addToSendQueue(Object.assign(Object.assign({}, payload), { to, from: this.userId, time: Date.now() }));
@@ -234,6 +236,26 @@ class Dom {
         this.userId = USER_ID;
         this.api = new API(this.userId, this.handleData.bind(this));
         this.container = container;
+        this.initializeCameraSelector();
+    }
+    initializeCameraSelector() {
+        const select = document.getElementById("camera");
+        select.addEventListener("change", async () => {
+            select.remove();
+            this.api.initialize(select.value);
+        });
+        navigator.mediaDevices.enumerateDevices().then((mediaDevices) => {
+            select.innerHTML = "<option selected disabled>Choose Camera</option>";
+            let count = 1;
+            mediaDevices.forEach(({ kind, label, deviceId }) => {
+                if (kind === "videoinput") {
+                    const option = document.createElement("option");
+                    option.value = deviceId;
+                    option.innerText = label || `Camera ${count++}`;
+                    select.appendChild(option);
+                }
+            });
+        });
     }
     handleData(payload) {
         if (!payload) {
