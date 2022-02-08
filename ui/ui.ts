@@ -207,7 +207,7 @@ class Ledger {
       this.receive(pluginMessage);
     this.ping();
     setInterval(this.ping, 150);
-    setInterval(this.sendQueue.bind(this), 20);
+    // setInterval(this.sendQueue.bind(this), 20);
   }
 
   ping() {
@@ -234,7 +234,14 @@ class Ledger {
   }
 
   addToSendQueue(message: Payload) {
-    this.queue.push(message);
+    // this.queue.push(message);
+    parent.postMessage(
+      {
+        pluginMessage: { type: "message", data: message, id: USER_ID },
+        pluginId: "*",
+      },
+      "*"
+    );
   }
 
   receive({ type, data }: { type: "pong"; data: Payload[] }) {
@@ -246,6 +253,7 @@ class Ledger {
       if (data.length < this.messages.length) {
         this.messageIndex = 0;
       }
+      console.log(data.length);
       this.messages = data;
       this.processMessages();
     }
@@ -328,7 +336,7 @@ class Dom {
       });
       const count = this.container.querySelectorAll("video").length;
       const di = 1 / Math.ceil(Math.sqrt(count));
-      this.container.style.setProperty("--di", `${100 * di}vw`);
+      this.container.style.setProperty("--di-rat", di.toFixed(5));
     }
   }
 }

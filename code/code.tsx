@@ -53,23 +53,35 @@ function Widget() {
         array.push(message.data);
         messagesMap.set(message.id, array);
       } else if (message.type === "ping") {
-        figma.ui.postMessage({ type: "pong", data: ledger() });
+        const data = ledger();
+        const last = data[data.length - 1];
+        // clear after 5 seconds of inactivity
+        if (last && last.time < Date.now() - 1000 * 5) {
+          messagesMap.keys().forEach((key) => messagesMap.delete(key));
+        }
+        figma.ui.postMessage({ type: "pong", data });
       } else {
         console.log("ASDF", message);
       }
     };
   });
 
-  // const url = "http://localhost:6969?13";
-  // const urlOld = "http://localhost:42069?123"; // old
-  const url = "https://jakealbaugh.github.io/figma-widget-test?123"; // staging
-  const urlOld = "https://jakealbaugh.github.io/figma-widget-test/old.html?123"; // staging- old
+  // const url = "http://localhost:6969?142";
+  // const urlOld = "http://localhost:42069?123";
+  const url = "https://jakealbaugh.github.io/figma-widget-test?123";
+  const urlOld = "https://jakealbaugh.github.io/figma-widget-test/old.html?123";
 
   return (
-    <AutoLayout spacing={16} direction="vertical">
+    <AutoLayout
+      spacing={8}
+      padding={8}
+      direction="vertical"
+      horizontalAlignItems="center"
+    >
       <AutoLayout
-        fill="#FF0"
-        padding={16}
+        cornerRadius={4}
+        fill="#000"
+        padding={8}
         onClick={() =>
           new Promise(() => {
             figma.showUI(`<script>location.href = "${url}";</script>`, {
@@ -81,13 +93,14 @@ function Widget() {
           })
         }
       >
-        <Text fontSize={24} fontWeight="black">
+        <Text fontSize={12} fill="#FFF" fontWeight="medium">
           Join Video Chat
         </Text>
       </AutoLayout>
-      <AutoLayout
-        fill="#00F"
-        padding={16}
+      {/* <AutoLayout
+        cornerRadius={4}
+        fill="#999"
+        padding={8}
         onClick={() =>
           new Promise(() => {
             figma.showUI(`<script>location.href = "${urlOld}";</script>`, {
@@ -99,25 +112,11 @@ function Widget() {
           })
         }
       >
-        <Text fontSize={24} fontWeight="black">
-          Join Lo Res Video Chat
+        <Text fontSize={12} fill="#FFF" fontWeight="medium">
+          LoFi Video Chat
         </Text>
-      </AutoLayout>
-      <AutoLayout
-        fill="#F00"
-        padding={8}
-        onClick={() => {
-          dataMap.keys().forEach((k) => dataMap.delete(k));
-          messagesMap.keys().forEach((k) => messagesMap.delete(k));
-        }}
-      >
-        <Text fontSize={12}>Purge</Text>
-      </AutoLayout>
-      {ledger().map((message, i) => (
-        <Text fontSize={12} key={i}>
-          {JSON.stringify(message)}
-        </Text>
-      ))}
+      </AutoLayout> */}
+      {/* <Text fontSize={12}>{ledger().length}</Text> */}
     </AutoLayout>
   );
 }
