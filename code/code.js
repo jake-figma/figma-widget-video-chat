@@ -45,7 +45,7 @@ function Widget() {
     });
     // const url = "http://localhost:6969?142";
     // const urlOld = "http://localhost:42069?123";
-    const url = "https://jakealbaugh.github.io/figma-widget-test?123";
+    const url = "https://jakealbaugh.github.io/figma-widget-test";
     const urlOld = "https://jakealbaugh.github.io/figma-widget-test/old.html?123";
     const renderOld = false;
     return (figma.widget.h(AutoLayout, { spacing: 8, padding: 8, direction: "vertical", horizontalAlignItems: "center" },
