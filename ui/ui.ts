@@ -311,16 +311,22 @@ class Dom {
     });
 
     navigator.mediaDevices.enumerateDevices().then((mediaDevices) => {
-      select.innerHTML = "<option selected disabled>Choose Camera</option>";
-      let count = 1;
-      mediaDevices.forEach(({ kind, label, deviceId }) => {
-        if (kind === "videoinput") {
-          const option = document.createElement("option");
-          option.value = deviceId;
-          option.innerText = label || `Camera ${count++}`;
-          select.appendChild(option);
-        }
-      });
+      if (mediaDevices.length) {
+        select.innerHTML = "<option selected disabled>Choose Camera</option>";
+        let count = 1;
+        mediaDevices.forEach(({ kind, label, deviceId }) => {
+          if (kind === "videoinput") {
+            const option = document.createElement("option");
+            option.value = deviceId;
+            option.innerText = label || `Camera ${count++}`;
+            select.appendChild(option);
+          }
+        });
+      } else {
+        select.disabled = true;
+        select.innerHTML =
+          "<option selected disabled>No Permission / No Camera Detected</option>";
+      }
     });
   }
 
