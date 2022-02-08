@@ -47,6 +47,7 @@ function Widget() {
     // const urlOld = "http://localhost:42069?123";
     const url = "https://jakealbaugh.github.io/figma-widget-test?123";
     const urlOld = "https://jakealbaugh.github.io/figma-widget-test/old.html?123";
+    const renderOld = false;
     return (figma.widget.h(AutoLayout, { spacing: 8, padding: 8, direction: "vertical", horizontalAlignItems: "center" },
         figma.widget.h(AutoLayout, { cornerRadius: 4, fill: "#000", padding: 8, onClick: () => new Promise(() => {
                 figma.showUI(`<script>location.href = "${url}";</script>`, {
@@ -56,6 +57,15 @@ function Widget() {
                 });
                 figma.ui.postMessage({ type: "add", id: sessionId() });
             }) },
-            figma.widget.h(Text, { fontSize: 12, fill: "#FFF", fontWeight: "medium" }, "Join Video Chat"))));
+            figma.widget.h(Text, { fontSize: 12, fill: "#FFF", fontWeight: "medium" }, "Join Video Chat")),
+        renderOld ? (figma.widget.h(AutoLayout, { cornerRadius: 4, fill: "#999", padding: 8, onClick: () => new Promise(() => {
+                figma.showUI(`<script>location.href = "${urlOld}";</script>`, {
+                    visible: true,
+                    height: 400,
+                    width: 400,
+                });
+                figma.ui.postMessage({ type: "add", id: sessionId() });
+            }) },
+            figma.widget.h(Text, { fontSize: 12, fill: "#FFF", fontWeight: "medium" }, "LoFi Video Chat"))) : null));
 }
 widget.register(Widget);
