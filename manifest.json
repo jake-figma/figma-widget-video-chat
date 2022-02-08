@@ -4,7 +4,7 @@
   "api": "1.0.0",
   "main": "code/code.js",
   "editorType": ["figjam"],
-  "permissions": ["camera", "currentuser"],
+  "permissions": ["activeusers", "camera", "currentuser"],
   "containsWidget": true,
   "widgetApi": "1.0.0"
 }

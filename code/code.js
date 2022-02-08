@@ -7,8 +7,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-const { currentUser, widget } = figma;
-const { useEffect, useSyncedMap, AutoLayout, Text } = widget;
+const { activeUsers, currentUser, widget } = figma;
+const { useEffect, useSyncedMap, AutoLayout, Image, Text } = widget;
 function Widget() {
     const dataMap = useSyncedMap("data");
     const messagesMap = useSyncedMap("messages");
@@ -17,6 +17,7 @@ function Widget() {
         .values()
         .reduce((val, curr) => val.concat(curr), [])
         .sort((a, b) => (a.time > b.time ? 1 : -1));
+    const userFromSessionId = (id) => activeUsers.find(({ sessionId }) => sessionId.toString() === id) || null;
     useEffect(() => {
         figma.ui.onmessage = (message) => __awaiter(this, void 0, void 0, function* () {
             if (message.type === "image") {
@@ -33,7 +34,7 @@ function Widget() {
                 const data = ledger();
                 const last = data[data.length - 1];
                 // clear after 5 seconds of inactivity
-                if (last && last.time < Date.now() - 1000 * 5) {
+                if (last && last.time < Date.now() - 5000) {
                     messagesMap.keys().forEach((key) => messagesMap.delete(key));
                 }
                 figma.ui.postMessage({ type: "pong", data });

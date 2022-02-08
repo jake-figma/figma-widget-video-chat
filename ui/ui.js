@@ -236,9 +236,9 @@ class Dom {
         this.userId = USER_ID;
         this.api = new API(this.userId, this.handleData.bind(this));
         this.container = container;
-        this.initializeCameraSelector();
+        this.initializeDom();
     }
-    initializeCameraSelector() {
+    initializeDom() {
         const select = document.getElementById("camera");
         select.addEventListener("change", async () => {
             select.remove();

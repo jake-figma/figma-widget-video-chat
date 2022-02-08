@@ -1,5 +1,5 @@
-const { currentUser, widget } = figma;
-const { useEffect, useSyncedMap, AutoLayout, Text } = widget;
+const { activeUsers, currentUser, widget } = figma;
+const { useEffect, useSyncedMap, AutoLayout, Image, Text } = widget;
 
 interface PayloadParamsDataBoolean {
   type: "rtc.accepted" | "rtc.joined";
@@ -42,6 +42,9 @@ function Widget() {
       .reduce<Payload[]>((val, curr) => val.concat(curr), [])
       .sort((a, b) => (a.time > b.time ? 1 : -1));
 
+  const userFromSessionId = (id: string) =>
+    activeUsers.find(({ sessionId }) => sessionId.toString() === id) || null;
+
   useEffect(() => {
     figma.ui.onmessage = async (message: Message) => {
       if (message.type === "image") {
@@ -56,7 +59,7 @@ function Widget() {
         const data = ledger();
         const last = data[data.length - 1];
         // clear after 5 seconds of inactivity
-        if (last && last.time < Date.now() - 1000 * 5) {
+        if (last && last.time < Date.now() - 5000) {
           messagesMap.keys().forEach((key) => messagesMap.delete(key));
         }
         figma.ui.postMessage({ type: "pong", data });

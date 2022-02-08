@@ -308,10 +308,10 @@ class Dom {
   constructor(container: HTMLElement) {
     this.api = new API(this.userId, this.handleData.bind(this));
     this.container = container;
-    this.initializeCameraSelector();
+    this.initializeDom();
   }
 
-  initializeCameraSelector() {
+  initializeDom() {
     const select = document.getElementById("camera") as HTMLSelectElement;
     select.addEventListener("change", async () => {
       select.remove();
