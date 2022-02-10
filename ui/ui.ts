@@ -1,4 +1,10 @@
-import { Payload, PayloadParams } from "../types";
+import {
+  Payload,
+  PayloadMessage,
+  PayloadParams,
+  PingMessage,
+  PongMessage,
+} from "../types";
 
 const onError = console.error;
 // Not ashamed at all. Don't @ me.
@@ -6,18 +12,13 @@ const USER_ID = Math.round(Math.random() * 100000000000000)
   .toString()
   .padStart(15, "0");
 
-type DataHandler = (payload?: Omit<Payload, "time">) => void;
-
 class WebRTC {
   api: API;
   connections: { [k: string]: RTCPeerConnection };
   connectionConfig: { iceServers: { urls: string }[] };
   streams: { [k: string]: MediaStream };
-  onData: DataHandler;
 
-  constructor(api: API, onData: DataHandler) {
-    this.onData = onData;
-
+  constructor(api: API) {
     this.api = api;
     this.connections = {};
     this.connectionConfig = {
@@ -40,7 +41,7 @@ class WebRTC {
             video: deviceId ? { deviceId: { exact: deviceId } } : true,
           });
           this.streams[this.api.userId] = stream;
-          this.onData({
+          this.api.dom.handleData({
             type: "connection",
             from: this.api.userId,
             to: this.api.userId,
@@ -55,7 +56,7 @@ class WebRTC {
         }
       } else {
         onError("Your browser does not support getUserMedia API");
-        this.onData({
+        this.api.dom.handleData({
           type: "connection",
           from: this.api.userId,
           to: this.api.userId,
@@ -123,7 +124,7 @@ class WebRTC {
         const d = JSON.parse(data as string) as RTCIceCandidateInit;
         await this.connections[from].addIceCandidate(new RTCIceCandidate(d));
       } else {
-        this.onData(payload);
+        this.api.dom.handleData(payload);
       }
       return true;
     } catch (error) {
@@ -151,7 +152,7 @@ class WebRTC {
   gotRemoteStream(event: RTCTrackEvent, peerId: string) {
     console.log(`got remote stream, peer ${peerId}`);
     this.streams[peerId] = event.streams[0];
-    this.onData({
+    this.api.dom.handleData({
       type: "connection",
       from: peerId,
       to: this.api.userId,
@@ -164,7 +165,7 @@ class WebRTC {
     if (state === "failed" || state === "closed" || state === "disconnected") {
       delete this.connections[peerId];
       delete this.streams[peerId];
-      this.onData({
+      this.api.dom.handleData({
         type: "disconnection",
         from: peerId,
         to: this.api.userId,
@@ -173,46 +174,62 @@ class WebRTC {
   }
 }
 
-class Ledger {
-  dataHandler: (payload: Payload) => Promise<any>;
+class API {
+  dom: Dom;
   initialized = false;
   messages: Payload[] = [];
   messageIndex = 0;
-  queue: Payload[] = [];
   processing = false;
+  rtc: WebRTC;
+  userId: string;
 
-  constructor(dataHandler: (payload: Payload) => Promise<any>) {
-    this.dataHandler = dataHandler;
+  constructor(userId: string, dom: Dom) {
+    this.dom = dom;
+    this.userId = userId;
+    this.rtc = new WebRTC(this);
     window.onmessage = ({ data: { pluginMessage } }) =>
-      this.receive(pluginMessage);
+      this.receiveMessageFromParent(pluginMessage);
   }
 
-  initialize() {
-    this.ping();
-    setInterval(this.ping, 150);
+  async initialize(deviceId: string) {
+    await this.rtc.initialize(deviceId);
+    this.sendPing();
+    setInterval(this.sendPing.bind(this), 150);
   }
 
-  ping() {
-    parent.postMessage(
-      {
-        pluginMessage: { type: "ping", id: USER_ID },
-        pluginId: "*",
-      },
-      "*"
-    );
+  send(to: string, payload: PayloadParams) {
+    this.sendMessage({
+      ...payload,
+      to,
+      from: this.userId,
+      time: Date.now(),
+    });
   }
 
-  send(message: Payload) {
-    parent.postMessage(
-      {
-        pluginMessage: { type: "message", data: message, id: USER_ID },
-        pluginId: "*",
-      },
-      "*"
-    );
+  sendMessage(message: Payload) {
+    this.postMessageToParent({ type: "message", data: message, id: USER_ID });
   }
 
-  receive({ type, data }: { type: "pong"; data: Payload[] }) {
+  sendPing() {
+    this.postMessageToParent({ type: "ping", id: USER_ID });
+  }
+
+  postMessageToParent(pluginMessage: PingMessage | PayloadMessage) {
+    parent.postMessage({ pluginMessage, pluginId: "*" }, "*");
+  }
+
+  async processMessages() {
+    if (this.processing || this.messageIndex >= this.messages.length) {
+      return;
+    }
+    this.processing = true;
+    await this.rtc.handleData(this.messages[this.messageIndex]);
+    this.messageIndex++;
+    this.processing = false;
+    this.processMessages();
+  }
+
+  receiveMessageFromParent({ type, data }: PongMessage) {
     if (type === "pong") {
       if (!this.initialized) {
         this.messageIndex = data.length;
@@ -221,47 +238,11 @@ class Ledger {
       if (data.length < this.messages.length) {
         this.messageIndex = 0;
       }
-      console.log(data.length);
+      // helpful for debugging multiplayer being in sync
+      // console.log(data.length);
       this.messages = data;
       this.processMessages();
     }
-  }
-
-  async processMessages() {
-    if (this.processing || this.messageIndex >= this.messages.length) {
-      return;
-    }
-    this.processing = true;
-    await this.dataHandler(this.messages[this.messageIndex]);
-    this.messageIndex++;
-    this.processing = false;
-    this.processMessages();
-  }
-}
-
-class API {
-  ledger: Ledger;
-  userId: string;
-  rtc: WebRTC;
-
-  constructor(userId: string, onData: DataHandler) {
-    this.userId = userId;
-    this.rtc = new WebRTC(this, onData);
-    this.ledger = new Ledger(this.rtc.handleData.bind(this.rtc));
-  }
-
-  async initialize(deviceId: string) {
-    await this.rtc.initialize(deviceId);
-    this.ledger.initialize();
-  }
-
-  send(to: string, payload: PayloadParams) {
-    this.ledger.send({
-      ...payload,
-      to,
-      from: this.userId,
-      time: Date.now(),
-    });
   }
 }
 
@@ -275,7 +256,7 @@ class Dom {
   userId = USER_ID;
 
   constructor(container: HTMLElement) {
-    this.api = new API(this.userId, this.handleData.bind(this));
+    this.api = new API(this.userId, this);
     this.container = container;
     this.initializeDom();
   }
@@ -307,7 +288,7 @@ class Dom {
     });
   }
 
-  handleData(payload: Payload) {
+  handleData(payload: Omit<Payload, "time">) {
     if (!payload) {
       return;
     }

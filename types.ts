@@ -21,7 +21,6 @@ export type PayloadParams = PayloadParamsDataBoolean | PayloadParamsDataString;
 export type Payload = PayloadRequired &
   (PayloadParamsDataBoolean | PayloadParamsDataString | PayloadConnection);
 
-type PayloadMessage = { type: "message"; data: Payload; id: string };
-type PingMessage = { type: "ping"; id: string };
-
-export type Message = PayloadMessage | PingMessage;
+export type PayloadMessage = { type: "message"; data: Payload; id: string };
+export type PingMessage = { type: "ping"; id: string };
+export type PongMessage = { type: "pong"; data: Payload[] };

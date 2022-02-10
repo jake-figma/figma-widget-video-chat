@@ -3,8 +3,7 @@
   var onError = console.error;
   var USER_ID = Math.round(Math.random() * 1e14).toString().padStart(15, "0");
   var WebRTC = class {
-    constructor(api, onData) {
-      this.onData = onData;
+    constructor(api) {
       this.api = api;
       this.connections = {};
       this.connectionConfig = {
@@ -26,7 +25,7 @@
               video: deviceId ? { deviceId: { exact: deviceId } } : true
             });
             this.streams[this.api.userId] = stream;
-            this.onData({
+            this.api.dom.handleData({
               type: "connection",
               from: this.api.userId,
               to: this.api.userId
@@ -41,7 +40,7 @@
           }
         } else {
           onError("Your browser does not support getUserMedia API");
-          this.onData({
+          this.api.dom.handleData({
             type: "connection",
             from: this.api.userId,
             to: this.api.userId
@@ -95,7 +94,7 @@
           const d = JSON.parse(data);
           await this.connections[from].addIceCandidate(new RTCIceCandidate(d));
         } else {
-          this.onData(payload);
+          this.api.dom.handleData(payload);
         }
         return true;
       } catch (error) {
@@ -121,7 +120,7 @@
     gotRemoteStream(event, peerId) {
       console.log(`got remote stream, peer ${peerId}`);
       this.streams[peerId] = event.streams[0];
-      this.onData({
+      this.api.dom.handleData({
         type: "connection",
         from: peerId,
         to: this.api.userId
@@ -133,7 +132,7 @@
       if (state === "failed" || state === "closed" || state === "disconnected") {
         delete this.connections[peerId];
         delete this.streams[peerId];
-        this.onData({
+        this.api.dom.handleData({
           type: "disconnection",
           from: peerId,
           to: this.api.userId
@@ -141,33 +140,50 @@
       }
     }
   };
-  var Ledger = class {
-    constructor(dataHandler) {
+  var API = class {
+    constructor(userId, dom2) {
       this.initialized = false;
       this.messages = [];
       this.messageIndex = 0;
-      this.queue = [];
       this.processing = false;
-      this.dataHandler = dataHandler;
-      window.onmessage = ({ data: { pluginMessage } }) => this.receive(pluginMessage);
+      this.dom = dom2;
+      this.userId = userId;
+      this.rtc = new WebRTC(this);
+      window.onmessage = ({ data: { pluginMessage } }) => this.receiveMessageFromParent(pluginMessage);
     }
-    initialize() {
-      this.ping();
-      setInterval(this.ping, 150);
+    async initialize(deviceId) {
+      await this.rtc.initialize(deviceId);
+      this.sendPing();
+      setInterval(this.sendPing.bind(this), 150);
     }
-    ping() {
-      parent.postMessage({
-        pluginMessage: { type: "ping", id: USER_ID },
-        pluginId: "*"
-      }, "*");
+    send(to, payload) {
+      this.sendMessage({
+        ...payload,
+        to,
+        from: this.userId,
+        time: Date.now()
+      });
     }
-    send(message) {
-      parent.postMessage({
-        pluginMessage: { type: "message", data: message, id: USER_ID },
-        pluginId: "*"
-      }, "*");
+    sendMessage(message) {
+      this.postMessageToParent({ type: "message", data: message, id: USER_ID });
     }
-    receive({ type, data }) {
+    sendPing() {
+      this.postMessageToParent({ type: "ping", id: USER_ID });
+    }
+    postMessageToParent(pluginMessage) {
+      parent.postMessage({ pluginMessage, pluginId: "*" }, "*");
+    }
+    async processMessages() {
+      if (this.processing || this.messageIndex >= this.messages.length) {
+        return;
+      }
+      this.processing = true;
+      await this.rtc.handleData(this.messages[this.messageIndex]);
+      this.messageIndex++;
+      this.processing = false;
+      this.processMessages();
+    }
+    receiveMessageFromParent({ type, data }) {
       if (type === "pong") {
         if (!this.initialized) {
           this.messageIndex = data.length;
@@ -176,39 +192,9 @@
         if (data.length < this.messages.length) {
           this.messageIndex = 0;
         }
-        console.log(data.length);
         this.messages = data;
         this.processMessages();
       }
-    }
-    async processMessages() {
-      if (this.processing || this.messageIndex >= this.messages.length) {
-        return;
-      }
-      this.processing = true;
-      await this.dataHandler(this.messages[this.messageIndex]);
-      this.messageIndex++;
-      this.processing = false;
-      this.processMessages();
-    }
-  };
-  var API = class {
-    constructor(userId, onData) {
-      this.userId = userId;
-      this.rtc = new WebRTC(this, onData);
-      this.ledger = new Ledger(this.rtc.handleData.bind(this.rtc));
-    }
-    async initialize(deviceId) {
-      await this.rtc.initialize(deviceId);
-      this.ledger.initialize();
-    }
-    send(to, payload) {
-      this.ledger.send({
-        ...payload,
-        to,
-        from: this.userId,
-        time: Date.now()
-      });
     }
   };
   var Dom = class {
@@ -218,7 +204,7 @@
       this.streams = {};
       this.streamId = null;
       this.userId = USER_ID;
-      this.api = new API(this.userId, this.handleData.bind(this));
+      this.api = new API(this.userId, this);
       this.container = container;
       this.initializeDom();
     }

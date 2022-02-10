@@ -1,4 +1,4 @@
-import { Message, Payload } from "../types";
+import { Payload, PayloadMessage, PingMessage } from "../types";
 
 const { currentUser, widget } = figma;
 const { useEffect, useSyncedMap, AutoLayout, Image, Text } = widget;
@@ -14,7 +14,7 @@ function Widget() {
       .sort((a, b) => (a.time > b.time ? 1 : -1));
 
   useEffect(() => {
-    figma.ui.onmessage = async (message: Message) => {
+    figma.ui.onmessage = async (message: PingMessage | PayloadMessage) => {
       if (message.type === "message") {
         const array = messagesMap.get(message.id) || [];
         array.push(message.data);
