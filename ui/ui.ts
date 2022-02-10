@@ -1,42 +1,21 @@
-interface PayloadParamsDataBoolean {
-  type: "rtc.accepted" | "rtc.joined";
-  data: boolean;
-}
-interface PayloadParamsDataString {
-  type: "rtc.sdp" | "rtc.ice";
-  data: string;
-}
-
-interface PayloadRequired {
-  from: string;
-  to: string;
-}
-interface PayloadConnection {
-  type: "connection" | "disconnection";
-  data?: string;
-}
-
-type PayloadParams = PayloadParamsDataBoolean | PayloadParamsDataString;
-type Payload = PayloadRequired &
-  (PayloadParamsDataBoolean | PayloadParamsDataString | PayloadConnection) & {
-    time?: number;
-  };
+import { Payload, PayloadParams } from "../types";
 
 const onError = console.error;
+// Not ashamed at all. Don't @ me.
 const USER_ID = Math.round(Math.random() * 100000000000000)
   .toString()
   .padStart(15, "0");
 
-type DataHandler = (payload?: Payload) => void;
+type DataHandler = (payload?: Omit<Payload, "time">) => void;
 
 class WebRTC {
   api: API;
   connections: { [k: string]: RTCPeerConnection };
   connectionConfig: { iceServers: { urls: string }[] };
   streams: { [k: string]: MediaStream };
-  onData: (payload: Payload) => void;
+  onData: DataHandler;
 
-  constructor(api: API, onData: (payload: Payload) => void) {
+  constructor(api: API, onData: DataHandler) {
     this.onData = onData;
 
     this.api = api;
@@ -125,12 +104,10 @@ class WebRTC {
       }
 
       if (type === "rtc.joined") {
-        // it is the stream
         // set up peer connection object for a newcomer peer
         this.initializePeer(from);
         this.api.send(from, { type: "rtc.accepted", data: false });
       } else if (type === "rtc.accepted") {
-        // it is the stream
         // initiate call if we are the newcomer peer
         this.initializePeer(from, true);
       } else if (type === "rtc.sdp" && data) {

@@ -4,14 +4,19 @@
   "description": "Figma Widget Video Chat",
   "main": "code.js",
   "scripts": {
-    "build": "tsc -p code/tsconfig.json",
-    "dev": "npm run build -- --watch & python3 -m http.server 42069"
+    "build": "npm run build:ui && npm run build:code",
+    "build:code": "esbuild code/code.tsx --bundle --outfile=code/code.js",
+    "build:ui": "esbuild ui/ui.ts --bundle --outfile=ui/ui.js",
+    "serve": "python3 -m http.server 42069",
+    "dev": "concurrently \"npm run build:code -- --watch\" \"npm run build:ui -- --watch\" \"npm run serve\""
   },
   "author": "jake albaugh",
   "license": "",
   "devDependencies": {
     "@figma/plugin-typings": "*",
     "@figma/widget-typings": "*",
+    "concurrently": "*",
+    "esbuild": "*",
     "typescript": "*"
   }
 }

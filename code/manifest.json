@@ -2,7 +2,7 @@
   "name": "Video Chat",
   "id": "figma-widget-video-chat",
   "api": "1.0.0",
-  "main": "code/code.js",
+  "main": "code.js",
   "editorType": ["figjam"],
   "permissions": ["activeusers", "camera", "currentuser"],
   "containsWidget": true,
