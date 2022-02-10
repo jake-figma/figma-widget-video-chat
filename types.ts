@@ -1,26 +1,45 @@
-interface PayloadParamsDataBoolean {
+interface RTCDataParamsDataBoolean {
   type: "rtc.accepted" | "rtc.joined";
   data: boolean;
 }
-interface PayloadParamsDataString {
+interface RTCDataParamsDataString {
   type: "rtc.sdp" | "rtc.ice";
   data: string;
 }
 
-interface PayloadRequired {
+interface RTCDataRequired {
   from: string;
   to: string;
   time: number;
 }
-interface PayloadConnection {
+interface RTCDataConnection {
   type: "connection" | "disconnection";
   data?: string;
 }
 
-export type PayloadParams = PayloadParamsDataBoolean | PayloadParamsDataString;
-export type Payload = PayloadRequired &
-  (PayloadParamsDataBoolean | PayloadParamsDataString | PayloadConnection);
+export type RTCDataParams = RTCDataParamsDataBoolean | RTCDataParamsDataString;
+export type RTCData = RTCDataRequired &
+  (RTCDataParamsDataBoolean | RTCDataParamsDataString | RTCDataConnection);
 
-export type PayloadMessage = { type: "message"; data: Payload; id: string };
-export type PingMessage = { type: "ping"; id: string };
-export type PongMessage = { type: "pong"; data: Payload[] };
+type UiMessageRTCData = { type: "rtc"; data: RTCData; id: string };
+type UiMessagePing = { type: "ping"; id: string };
+type WidgetMessageInit = { type: "initialize"; data: string };
+type WidgetMessagePong = { type: "pong"; data: RTCData[] };
+
+export type UiMessage = UiMessageRTCData | UiMessagePing;
+export type WidgetMessage = WidgetMessageInit | WidgetMessagePong;
+
+export const isUiMessagePing = (message: UiMessage): message is UiMessagePing =>
+  message.type === "ping";
+
+export const isUiMessageRTCData = (
+  message: UiMessage
+): message is UiMessageRTCData => message.type === "rtc";
+
+export const isWidgetMessageInit = (
+  message: WidgetMessage
+): message is WidgetMessageInit => message.type === "initialize";
+
+export const isWidgetMessagePong = (
+  message: WidgetMessage
+): message is WidgetMessagePong => message.type === "pong";
