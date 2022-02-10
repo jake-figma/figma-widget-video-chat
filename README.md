@@ -48,18 +48,10 @@ function allMessages(): Message[] {
   - widget receives `Message` and pushes into `Message[]` stored at `messagesMap.get(ui.id)`
 - ui polls widget for all `Messages` periodically.
   - widget returns a flattened `Message[]` by merging `messagesMap` values and sorting by timestamp
-  - ui processes all messages, and has a cursor indicating the index of last message received.
+  - ui processes all messages, and has a cursor indicating the timestamp of last message received.
 
 ### Cleaning
 
 These messages can be very lengthy, and widget sorting all messages every time it is polled can be intense, so it is important the messages map is cleared whenever possible.
 
-To do this, when it is polled, the widget also checks the timestamp on its most recent message, and if it is old, cleans itself.
-
-It only cleans the current user to prevent concurrent writes.
-
-### Gotchas
-
-widgets must initialize their message cursors at the current messages array length, otherwise they might process messages sent before they loaded.
-
-when messages map is cleared, ui cursors update to `0` by recognizing their cursor is greater than the length of the messages array.
+To do this, when it is polled, the widget cleans out old messages from that user.

@@ -36,8 +36,8 @@ function Widget() {
   };
 
   const showUi = () => {
-    // const url = "http://localhost:42069/ui?asdf";
-    const url = "https://jakealbaugh.github.io/figma-widget-test";
+    const url = "http://localhost:42069/ui?asdf";
+    // const url = "https://jakealbaugh.github.io/figma-widget-test";
     const opts = { visible: true, height: 400, width: 400 };
     figma.showUI(`<script>location.href = "${url}";</script>`, opts);
   };

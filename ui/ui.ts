@@ -8,6 +8,8 @@ import {
 } from "../types";
 
 const onError = console.error;
+// not ashamed. dont @ me.
+const uuid = (): string => Math.floor(Math.random() * 100000000000).toString();
 
 class WebRTC {
   api: API;
@@ -188,7 +190,7 @@ class API {
   async initialize(deviceId: string) {
     await this.rtc.initialize(deviceId);
     this.sendPing();
-    setInterval(this.sendPing.bind(this), 150);
+    setInterval(this.sendPing.bind(this), 500);
   }
 
   send(to: string, payload: RTCDataParams) {
@@ -256,8 +258,7 @@ class App {
   }
 
   initializeApp(userId: string) {
-    console.log({ userId });
-    this.userId = userId;
+    this.userId = `${userId}-${uuid()}`;
     const select = document.getElementById("camera") as HTMLSelectElement;
     select.addEventListener("change", async () => {
       select.remove();

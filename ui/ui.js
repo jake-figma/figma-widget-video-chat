@@ -5,6 +5,7 @@
 
   // ui/ui.ts
   var onError = console.error;
+  var uuid = () => Math.floor(Math.random() * 1e11).toString();
   var WebRTC = class {
     constructor(api) {
       this.api = api;
@@ -155,7 +156,7 @@
     async initialize(deviceId) {
       await this.rtc.initialize(deviceId);
       this.sendPing();
-      setInterval(this.sendPing.bind(this), 150);
+      setInterval(this.sendPing.bind(this), 500);
     }
     send(to, payload) {
       this.sendRTC({
@@ -207,8 +208,7 @@
       this.container = container;
     }
     initializeApp(userId) {
-      console.log({ userId });
-      this.userId = userId;
+      this.userId = `${userId}-${uuid()}`;
       const select = document.getElementById("camera");
       select.addEventListener("change", async () => {
         select.remove();
