@@ -3,7 +3,7 @@ import {
   isWidgetMessagePong,
   RTCData,
   RTCDataParams,
-  UiMessage,
+  UIMessage,
   WidgetMessage,
 } from "../types";
 
@@ -210,7 +210,7 @@ class API {
     this.postMessageToParent({ type: "rtc", data, id: this.app.userId });
   }
 
-  postMessageToParent(pluginMessage: UiMessage) {
+  postMessageToParent(pluginMessage: UIMessage) {
     parent.postMessage({ pluginMessage, pluginId: "*" }, "*");
   }
 

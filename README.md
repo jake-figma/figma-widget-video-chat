@@ -20,35 +20,35 @@ You can test the ui with different sessions on your own machine, but since the u
 
 ## types.ts
 
-This structure tries an approach that shares types across code and ui. This is helpful for formatting messages posted and received between the ui and widget.
+This structure shares types across code and ui. This is helpful for formatting messages posted and received between the ui and widget.
 
 ## How it works
 
-To establish a WebRTC connection, each session must exchange a series of messages with every other session. To achieve this in a widget, we use a synced map and polling.
+To establish a WebRTC connection, each new session must exchange a series of messages with every other session. To achieve this in a widget, we use a synced map and polling.
+
+When ui posts `Message` to widget, widget receives `Message` and pushes into `Message[]` stored at `messagesMap.get(ui.id)`.
 
 ```ts
 const messagesMap = useSyncedMap<Message[]>("messages");
+```
 
-// widget processing a new message from the ui
+```ts
 function receiveMessage(message: Message) {
   const array = messagesMap.get(message.uuid) || [];
   messagesMap.set(message.uuid, array.concat(message));
 }
-
-// widget flattening and sorting messages to send back to ui.
-function allMessages(): Message[] {
-  return messagesMap
-    .values()
-    .reduce((array, current) => array.concat(current), [])
-    .sort((a, b) => a.time - b.time);
-}
 ```
 
-- ui posts `Message` to widget
-  - widget receives `Message` and pushes into `Message[]` stored at `messagesMap.get(ui.id)`
-- ui polls widget for all `Messages` periodically.
-  - widget returns a flattened `Message[]` by merging `messagesMap` values and sorting by timestamp
-  - ui processes all messages, and has a cursor indicating the timestamp of last message received.
+When ui polls widget for all `Messages` periodically, widget returns a flattened `Message[]` by merging `messagesMap` values and sorting by timestamp.
+
+```ts
+const allMessages = messagesMap
+  .values()
+  .reduce<Message[]>((a, b) => a.concat(b), [])
+  .sort((a, b) => a.time - b.time);
+```
+
+UI then processes all relevant messages using a cursor that indicates the timestamp of last message received.
 
 ### Cleaning
 

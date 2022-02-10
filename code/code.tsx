@@ -1,8 +1,8 @@
 import {
-  isUiMessageRTCData,
-  isUiMessagePing,
+  isUIMessageRTCData,
+  isUIMessagePing,
   RTCData,
-  UiMessage,
+  UIMessage,
   WidgetMessage,
 } from "../types";
 
@@ -35,7 +35,7 @@ function Widget() {
     figma.ui.postMessage(message);
   };
 
-  const showUi = () => {
+  const showUI = () => {
     // const url = "http://localhost:42069/ui?asdf";
     const url = "https://jakealbaugh.github.io/figma-widget-test";
     const opts = { visible: true, height: 400, width: 400 };
@@ -43,12 +43,12 @@ function Widget() {
   };
 
   useEffect(() => {
-    figma.ui.onmessage = async (message: UiMessage) => {
-      if (isUiMessageRTCData(message)) {
+    figma.ui.onmessage = async (message: UIMessage) => {
+      if (isUIMessageRTCData(message)) {
         const array = messagesMap.get(message.id) || [];
         array.push(message.data);
         messagesMap.set(message.id, array);
-      } else if (isUiMessagePing(message)) {
+      } else if (isUIMessagePing(message)) {
         const array = messagesMap.get(message.id) || [];
         const last = array[array.length - 1];
         // clear self after 5 seconds of inactivity
@@ -74,7 +74,7 @@ function Widget() {
         padding={8}
         onClick={() =>
           new Promise(() => {
-            showUi();
+            showUI();
             sendInitMessage();
           })
         }

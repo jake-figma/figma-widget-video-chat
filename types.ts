@@ -23,20 +23,20 @@ export type RTCDataParams = RTCDataParamsDataBoolean | RTCDataParamsDataString;
 export type RTCData = RTCDataRequired &
   (RTCDataParamsDataBoolean | RTCDataParamsDataString | RTCDataConnection);
 
-type UiMessageRTCData = { type: "rtc"; data: RTCData; id: string };
-type UiMessagePing = { type: "ping"; id: string };
+type UIMessageRTCData = { type: "rtc"; data: RTCData; id: string };
+type UIMessagePing = { type: "ping"; id: string };
 type WidgetMessageInit = { type: "initialize"; data: string };
 type WidgetMessagePong = { type: "pong"; data: RTCData[] };
 
-export type UiMessage = UiMessageRTCData | UiMessagePing;
+export type UIMessage = UIMessageRTCData | UIMessagePing;
 export type WidgetMessage = WidgetMessageInit | WidgetMessagePong;
 
-export const isUiMessagePing = (message: UiMessage): message is UiMessagePing =>
+export const isUIMessagePing = (message: UIMessage): message is UIMessagePing =>
   message.type === "ping";
 
-export const isUiMessageRTCData = (
-  message: UiMessage
-): message is UiMessageRTCData => message.type === "rtc";
+export const isUIMessageRTCData = (
+  message: UIMessage
+): message is UIMessageRTCData => message.type === "rtc";
 
 export const isWidgetMessageInit = (
   message: WidgetMessage

@@ -21,8 +21,8 @@
   };
 
   // types.ts
-  var isUiMessagePing = (message) => message.type === "ping";
-  var isUiMessageRTCData = (message) => message.type === "rtc";
+  var isUIMessagePing = (message) => message.type === "ping";
+  var isUIMessageRTCData = (message) => message.type === "rtc";
 
   // code/code.tsx
   var { currentUser, widget } = figma;
@@ -45,18 +45,18 @@
       };
       figma.ui.postMessage(message);
     };
-    const showUi = () => {
+    const showUI = () => {
       const url = "https://jakealbaugh.github.io/figma-widget-test";
       const opts = { visible: true, height: 400, width: 400 };
       figma.showUI(`<script>location.href = "${url}";<\/script>`, opts);
     };
     useEffect(() => {
       figma.ui.onmessage = (message) => __async(this, null, function* () {
-        if (isUiMessageRTCData(message)) {
+        if (isUIMessageRTCData(message)) {
           const array = messagesMap.get(message.id) || [];
           array.push(message.data);
           messagesMap.set(message.id, array);
-        } else if (isUiMessagePing(message)) {
+        } else if (isUIMessagePing(message)) {
           const array = messagesMap.get(message.id) || [];
           const last = array[array.length - 1];
           if (last && last.time < Date.now() - 5e3) {
@@ -76,7 +76,7 @@
       fill: "#000",
       padding: 8,
       onClick: () => new Promise(() => {
-        showUi();
+        showUI();
         sendInitMessage();
       })
     }, /* @__PURE__ */ figma.widget.h(Text, {
