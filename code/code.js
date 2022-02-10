@@ -26,7 +26,7 @@
 
   // code/code.tsx
   var { currentUser, widget } = figma;
-  var { useEffect, useSyncedMap, AutoLayout, Image, Text } = widget;
+  var { useEffect, useSyncedMap, AutoLayout, Text } = widget;
   function Widget() {
     const messagesMap = useSyncedMap("messages");
     const sessionId = () => ((currentUser == null ? void 0 : currentUser.sessionId) || 0).toString();

@@ -2,19 +2,21 @@ interface RTCDataParamsDataBoolean {
   type: "rtc.accepted" | "rtc.joined";
   data: boolean;
 }
+
 interface RTCDataParamsDataString {
   type: "rtc.sdp" | "rtc.ice";
   data: string;
+}
+
+interface RTCDataConnection {
+  type: "connection" | "disconnection";
+  data?: string;
 }
 
 interface RTCDataRequired {
   from: string;
   to: string;
   time: number;
-}
-interface RTCDataConnection {
-  type: "connection" | "disconnection";
-  data?: string;
 }
 
 export type RTCDataParams = RTCDataParamsDataBoolean | RTCDataParamsDataString;

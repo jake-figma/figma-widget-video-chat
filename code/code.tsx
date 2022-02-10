@@ -7,7 +7,7 @@ import {
 } from "../types";
 
 const { currentUser, widget } = figma;
-const { useEffect, useSyncedMap, AutoLayout, Image, Text } = widget;
+const { useEffect, useSyncedMap, AutoLayout, Text } = widget;
 
 function Widget() {
   const messagesMap = useSyncedMap<RTCData[]>("messages");
