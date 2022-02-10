@@ -43,7 +43,7 @@
         }
       });
     });
-    const url = "http://localhost:42069/ui?asdf";
+    const url = "https://jakealbaugh.github.io/figma-widget-test";
     return /* @__PURE__ */ figma.widget.h(AutoLayout, {
       spacing: 8,
       padding: 8,

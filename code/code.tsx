@@ -31,8 +31,8 @@ function Widget() {
     };
   });
 
-  const url = "http://localhost:42069/ui?asdf";
-  // const url = "https://jakealbaugh.github.io/figma-widget-test";
+  // const url = "http://localhost:42069/ui?asdf";
+  const url = "https://jakealbaugh.github.io/figma-widget-test";
 
   return (
     <AutoLayout
